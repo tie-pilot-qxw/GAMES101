@@ -41,10 +41,29 @@ pub(crate) fn get_model_matrix(mut rotation_angle: f64) -> Matrix4<f64> {
     model
 }
 
-pub(crate) fn get_projection_matrix(eye_fov: f64, aspect_ratio: f64, z_near: f64, z_far: f64) -> Matrix4<f64> {
-    let mut projection: Matrix4<f64> = Matrix4::identity();
+pub(crate) fn get_projection_matrix(mut eye_fov: f64, aspect_ratio: f64, z_near: f64, z_far: f64) -> Matrix4<f64> {
     /*  implement your code here  */
-
+    eye_fov = eye_fov / 360. * PI;
+    let l = -eye_fov.tan() * z_near;
+    let r = -l;
+    let b = l * aspect_ratio;
+    let t = r * aspect_ratio;
+    let mut temp: Matrix4<f64> = Matrix4::identity();
+    temp.m11 = 2. / (r-l);
+    temp.m22 = 2. / (t-b);
+    temp.m33 = 2. / (z_far - z_near);
+    let mut m_ortho: Matrix4<f64> = Matrix4::identity();
+    m_ortho.m14 = -(r+l)/2.;
+    m_ortho.m24 = -(t+b)/2.;
+    m_ortho.m34 = -(z_near+z_far)/2.;
+    m_ortho = temp * m_ortho;
+    let mut m_trans: Matrix4<f64> = Matrix4::zeros();
+    m_trans.m11 = z_near;
+    m_trans.m22 = z_near;
+    m_trans.m33 = z_near + z_far;
+    m_trans.m34 = -z_near * z_far;
+    m_trans.m43 = 1.;
+    let projection:Matrix4<f64> = m_ortho * m_trans;
     projection
 }
 
