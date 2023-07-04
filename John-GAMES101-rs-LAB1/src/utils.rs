@@ -7,9 +7,26 @@ use opencv::imgproc::{COLOR_RGB2BGR, cvt_color};
 pub type V3d = Vector3<f64>;
 
 pub(crate) fn get_view_matrix(eye_pos: V3d) -> Matrix4<f64> {
-    let mut view: Matrix4<f64> = Matrix4::identity();
     /*  implement your code here  */
-
+    let mut t_view: Matrix4<f64> = Matrix4::identity();
+    t_view.m14 = -eye_pos[0];
+    t_view.m24 = -eye_pos[1];
+    t_view.m34 = -eye_pos[2];
+    let g = Vector3::new(0., 0., -1.);
+    let t = Vector3::new(1., 0., 0.);
+    let cross = g.cross(&t);
+    let mut r_view: Matrix4<f64> = Matrix4::identity();
+    r_view.m11 = cross[0];
+    r_view.m21 = cross[1];
+    r_view.m31 = cross[2];
+    r_view.m12 = t[0];
+    r_view.m22 = t[1];
+    r_view.m32 = t[2];
+    r_view.m13 = -g[0];
+    r_view.m23 = -g[1];
+    r_view.m33 = -g[2];
+    r_view = r_view.transpose();
+    let view = r_view * t_view;
     view
 }
 
