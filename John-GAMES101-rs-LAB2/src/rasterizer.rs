@@ -1,7 +1,7 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, f64::INFINITY};
 
-use nalgebra::{Matrix4, Vector3, Vector4};
 use crate::triangle::Triangle;
+use nalgebra::{Matrix4, Vector3, Vector4};
 
 #[allow(dead_code)]
 pub enum Buffer {
@@ -69,11 +69,11 @@ impl Rasterizer {
                 self.frame_buf.fill(Vector3::new(0.0, 0.0, 0.0));
             }
             Buffer::Depth => {
-                self.depth_buf.fill(f64::MAX);
+                self.depth_buf.fill(f64::MIN);
             }
             Buffer::Both => {
                 self.frame_buf.fill(Vector3::new(0.0, 0.0, 0.0));
-                self.depth_buf.fill(f64::MAX);
+                self.depth_buf.fill(f64::MIN);
             }
         }
     }
@@ -114,7 +114,13 @@ impl Rasterizer {
         ColBufId(id)
     }
 
-    pub fn draw(&mut self, pos_buffer: PosBufId, ind_buffer: IndBufId, col_buffer: ColBufId, _typ: Primitive) {
+    pub fn draw(
+        &mut self,
+        pos_buffer: PosBufId,
+        ind_buffer: IndBufId,
+        col_buffer: ColBufId,
+        _typ: Primitive,
+    ) {
         let buf = &self.clone().pos_buf[&pos_buffer.0];
         let ind: &Vec<Vector3<usize>> = &self.clone().ind_buf[&ind_buffer.0];
         let col = &self.clone().col_buf[&col_buffer.0];
@@ -126,11 +132,12 @@ impl Rasterizer {
 
         for i in ind {
             let mut t = Triangle::new();
-            let mut v =
-                vec![mvp * to_vec4(buf[i[0]], Some(1.0)), // homogeneous coordinates
-                     mvp * to_vec4(buf[i[1]], Some(1.0)), 
-                     mvp * to_vec4(buf[i[2]], Some(1.0))];
-    
+            let mut v = vec![
+                mvp * to_vec4(buf[i[0]], Some(1.0)), // homogeneous coordinates
+                mvp * to_vec4(buf[i[1]], Some(1.0)),
+                mvp * to_vec4(buf[i[2]], Some(1.0)),
+            ];
+
             for vec in v.iter_mut() {
                 *vec = *vec / vec.w;
             }
@@ -158,7 +165,27 @@ impl Rasterizer {
 
     pub fn rasterize_triangle(&mut self, t: &Triangle) {
         /*  implement your code here  */
-        
+        let mut end = (-INFINITY, -INFINITY);
+        let mut start = (INFINITY, INFINITY);
+        for vertex in t.v {
+            start.0 = start.0.min(vertex.x);
+            start.1 = start.1.min(vertex.y);
+            end.0 = end.0.max(vertex.x);
+            end.1 = end.1.max(vertex.y);
+        }
+
+        for i in (start.0.floor() as isize)..(end.0.ceil() as isize) {
+            for j in (start.1.floor() as isize)..(end.1.ceil() as isize) {
+                if inside_triangle(i as f64 + 0.5, j as f64 + 0.5, &t.v) {
+                    let index = self.get_index(i.try_into().unwrap(), j.try_into().unwrap());
+                    if self.depth_buf[index] > t.v[0].z {
+                        continue;
+                    }
+                    self.depth_buf[index] = t.v[0].z;
+                    self.set_pixel(&Vector3::new(i as f64, j as f64, 1.0), &(255. * t.color[0]));
+                }
+            }
+        }
     }
 
     pub fn frame_buffer(&self) -> &Vec<Vector3<f64>> {
@@ -172,16 +199,23 @@ fn to_vec4(v3: Vector3<f64>, w: Option<f64>) -> Vector4<f64> {
 
 fn inside_triangle(x: f64, y: f64, v: &[Vector3<f64>; 3]) -> bool {
     /*  implement your code here  */
-
-    false
+    let (c1, c2, c3) = compute_barycentric2d(x, y, v);
+    if c1 >= 0. && c2 >= 0. && c3 >= 0. {
+        true
+    } else {
+        false
+    }
 }
 
 fn compute_barycentric2d(x: f64, y: f64, v: &[Vector3<f64>; 3]) -> (f64, f64, f64) {
     let c1 = (x * (v[1].y - v[2].y) + (v[2].x - v[1].x) * y + v[1].x * v[2].y - v[2].x * v[1].y)
-        / (v[0].x * (v[1].y - v[2].y) + (v[2].x - v[1].x) * v[0].y + v[1].x * v[2].y - v[2].x * v[1].y);
+        / (v[0].x * (v[1].y - v[2].y) + (v[2].x - v[1].x) * v[0].y + v[1].x * v[2].y
+            - v[2].x * v[1].y);
     let c2 = (x * (v[2].y - v[0].y) + (v[0].x - v[2].x) * y + v[2].x * v[0].y - v[0].x * v[2].y)
-        / (v[1].x * (v[2].y - v[0].y) + (v[0].x - v[2].x) * v[1].y + v[2].x * v[0].y - v[0].x * v[2].y);
+        / (v[1].x * (v[2].y - v[0].y) + (v[0].x - v[2].x) * v[1].y + v[2].x * v[0].y
+            - v[0].x * v[2].y);
     let c3 = (x * (v[0].y - v[1].y) + (v[1].x - v[0].x) * y + v[0].x * v[1].y - v[1].x * v[0].y)
-        / (v[2].x * (v[0].y - v[1].y) + (v[1].x - v[0].x) * v[2].y + v[0].x * v[1].y - v[1].x * v[0].y);
+        / (v[2].x * (v[0].y - v[1].y) + (v[1].x - v[0].x) * v[2].y + v[0].x * v[1].y
+            - v[1].x * v[0].y);
     (c1, c2, c3)
 }
