@@ -1,3 +1,4 @@
+use std::f64::consts::PI;
 use std::os::raw::c_void;
 use nalgebra::{Matrix4, Vector3};
 use opencv::core::{Mat, MatTraitConst};
@@ -12,10 +13,14 @@ pub(crate) fn get_view_matrix(eye_pos: V3d) -> Matrix4<f64> {
     view
 }
 
-pub(crate) fn get_model_matrix(rotation_angle: f64) -> Matrix4<f64> {
+pub(crate) fn get_model_matrix(mut rotation_angle: f64) -> Matrix4<f64> {
     let mut model: Matrix4<f64> = Matrix4::identity();
     /*  implement your code here  */
-
+    rotation_angle = rotation_angle / 180. * PI;
+    model[(0,0)] = rotation_angle.cos();
+    model[(0,1)] = -rotation_angle.sin();
+    model[(1,0)] = rotation_angle.sin();
+    model[(1,1)] = rotation_angle.cos();
     model
 }
 
