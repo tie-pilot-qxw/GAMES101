@@ -1,8 +1,8 @@
-use std::collections::HashMap;
 use super::utils::V3d;
+use std::collections::HashMap;
 
-use nalgebra::{Matrix4, Vector3, Vector4};
 use crate::triangle::Triangle;
+use nalgebra::{Matrix4, Vector3, Vector4};
 
 type V4d = Vector4<f64>;
 
@@ -24,6 +24,7 @@ pub struct Rasterizer {
     model: Matrix4<f64>,
     view: Matrix4<f64>,
     projection: Matrix4<f64>,
+    arbitrary_rotation: Matrix4<f64>,
     pos_buf: HashMap<usize, Vec<V3d>>,
     ind_buf: HashMap<usize, Vec<Vector3<usize>>>,
 
@@ -55,10 +56,8 @@ impl Rasterizer {
 
     pub fn clear(&mut self, buff: Buffer) {
         match buff {
-            Buffer::Color =>
-                self.frame_buf.fill(Vector3::new(0.0, 0.0, 0.0)),
-            Buffer::Depth =>
-                self.depth_buf.fill(f64::MAX),
+            Buffer::Color => self.frame_buf.fill(Vector3::new(0.0, 0.0, 0.0)),
+            Buffer::Depth => self.depth_buf.fill(f64::MAX),
             Buffer::Both => {
                 self.frame_buf.fill(Vector3::new(0.0, 0.0, 0.0));
                 self.depth_buf.fill(f64::MAX);
@@ -103,7 +102,9 @@ impl Rasterizer {
                 } else {
                     if (dx < 0.0 && dy < 0.0) || (dx > 0.0 && dy > 0.0) {
                         y += 1.0;
-                    } else { y -= 1.0; }
+                    } else {
+                        y -= 1.0;
+                    }
                     px = px + 2.0 * (dy1 - dx1);
                 }
                 let point = V3d::new(x.round(), y.round(), 1.0);
@@ -124,7 +125,9 @@ impl Rasterizer {
                 } else {
                     if (dx < 0.0 && dy < 0.0) || (dx > 0.0 && dy > 0.0) {
                         x += 1.0;
-                    } else { x -= 1.0; }
+                    } else {
+                        x -= 1.0;
+                    }
                     py += 2.0 * (dx1 - dy1);
                 }
                 let point = V3d::new(x.round(), y.round(), 1.0);
@@ -144,6 +147,11 @@ impl Rasterizer {
     pub fn set_projection(&mut self, projection: Matrix4<f64>) {
         self.projection = projection;
     }
+
+    pub fn set_arbitrary_rotation(&mut self, arbitrary_rotation: Matrix4<f64>) {
+        self.arbitrary_rotation = arbitrary_rotation;
+    }
+
     fn get_next_id(&mut self) -> usize {
         let res = self.next_id;
         self.next_id += 1;
@@ -165,25 +173,50 @@ impl Rasterizer {
         let buf = &self.pos_buf[&pos_buffer.0];
         let ind: &Vec<Vector3<usize>> = &self.ind_buf[&ind_buffer.0];
 
-        let mvp = self.projection * self.view * self.model;
+        let mvp = self.projection * self.view * self.arbitrary_rotation * self.model;
 
         for i in ind {
             let t = Rasterizer::get_triangle(self.width, self.height, buf, mvp, i);
-            Self::draw_line(&t.v[2], &t.v[0], self.height, self.width, &mut self.frame_buf);
-            Self::draw_line(&t.v[0], &t.v[1], self.height, self.width, &mut self.frame_buf);
-            Self::draw_line(&t.v[1], &t.v[2], self.height, self.width, &mut self.frame_buf);
+            Self::draw_line(
+                &t.v[2],
+                &t.v[0],
+                self.height,
+                self.width,
+                &mut self.frame_buf,
+            );
+            Self::draw_line(
+                &t.v[0],
+                &t.v[1],
+                self.height,
+                self.width,
+                &mut self.frame_buf,
+            );
+            Self::draw_line(
+                &t.v[1],
+                &t.v[2],
+                self.height,
+                self.width,
+                &mut self.frame_buf,
+            );
         }
     }
 
-    fn get_triangle(width: u64, height: u64, buf: &Vec<V3d>, mvp: Matrix4<f64>, i: &Vector3<usize>) -> Triangle {
+    fn get_triangle(
+        width: u64,
+        height: u64,
+        buf: &Vec<V3d>,
+        mvp: Matrix4<f64>,
+        i: &Vector3<usize>,
+    ) -> Triangle {
         let f1 = (50.0 - 0.1) / 2.0;
         let f2 = (50.0 + 0.1) / 2.0;
 
         let mut t = Triangle::new();
-        let mut v =
-            vec![mvp * to_vec4(buf[i[0]], Some(1.0)),
-                 mvp * to_vec4(buf[i[1]], Some(1.0)),
-                 mvp * to_vec4(buf[i[2]], Some(1.0))];
+        let mut v = vec![
+            mvp * to_vec4(buf[i[0]], Some(1.0)),
+            mvp * to_vec4(buf[i[1]], Some(1.0)),
+            mvp * to_vec4(buf[i[2]], Some(1.0)),
+        ];
 
         for vec in v.iter_mut() {
             *vec = *vec / vec.w;
