@@ -13,7 +13,7 @@ use opencv::Result;
 use utils::*;
 
 fn main() -> Result<()> {
-    let mut r = Rasterizer::new(700, 700);
+    let mut r = Rasterizer::new(700, 700, 5);
     let eye_pos = Vector3::new(0.0, 0.0, 5.0);
     let pos = vec![
         Vector3::new(2.0, 0.0, -2.0),

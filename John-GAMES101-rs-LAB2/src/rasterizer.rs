@@ -29,10 +29,11 @@ pub struct Rasterizer {
     depth_buf: Vec<f64>,
     /*  You may need to uncomment here to implement the MSAA method  */
     // frame_sample: Vec<Vector3<f64>>,
-    // depth_sample: Vec<f64>,
+    depth_sample: Vec<f64>,
     width: u64,
     height: u64,
     next_id: usize,
+    sample_per_pixel_line: u64,
 }
 
 #[derive(Clone, Copy)]
@@ -45,12 +46,15 @@ pub struct IndBufId(usize);
 pub struct ColBufId(usize);
 
 impl Rasterizer {
-    pub fn new(w: u64, h: u64) -> Self {
+    pub fn new(w: u64, h: u64, sample_per_pixel_line: u64) -> Self {
         let mut r = Rasterizer::default();
         r.width = w;
         r.height = h;
+        r.sample_per_pixel_line = sample_per_pixel_line;
         r.frame_buf.resize((w * h) as usize, Vector3::zeros());
         r.depth_buf.resize((w * h) as usize, 0.0);
+        // r.frame_sample.resize((sample_per_pixel_line * sample_per_pixel_line * w * h) as usize, Vector3::zeros());
+        r.depth_sample.resize((sample_per_pixel_line * sample_per_pixel_line * w * h) as usize, 0.0);
         r
     }
 
@@ -60,20 +64,24 @@ impl Rasterizer {
 
     fn set_pixel(&mut self, point: &Vector3<f64>, color: &Vector3<f64>) {
         let ind = (self.height as f64 - 1.0 - point.y) * self.width as f64 + point.x;
-        self.frame_buf[ind as usize] = *color;
+        self.frame_buf[ind as usize] += *color;
     }
 
     pub fn clear(&mut self, buff: Buffer) {
         match buff {
             Buffer::Color => {
                 self.frame_buf.fill(Vector3::new(0.0, 0.0, 0.0));
+                // self.frame_sample.fill(Vector3::zeros());
             }
             Buffer::Depth => {
                 self.depth_buf.fill(f64::MIN);
+                self.depth_sample.fill(f64::MIN);
             }
             Buffer::Both => {
                 self.frame_buf.fill(Vector3::new(0.0, 0.0, 0.0));
                 self.depth_buf.fill(f64::MIN);
+                // self.frame_sample.fill(Vector3::zeros());
+                self.depth_sample.fill(f64::MIN);
             }
         }
     }
@@ -163,6 +171,10 @@ impl Rasterizer {
         }
     }
 
+    fn get_sample_index(&self, x: u64, y: u64, p: u64, q: u64) -> u64 {
+        (x * self.width + y)*self.sample_per_pixel_line * self.sample_per_pixel_line + p * self.sample_per_pixel_line + q
+    }
+
     pub fn rasterize_triangle(&mut self, t: &Triangle) {
         /*  implement your code here  */
         let mut end = (-INFINITY, -INFINITY);
@@ -176,14 +188,30 @@ impl Rasterizer {
 
         for i in (start.0.floor() as isize)..(end.0.ceil() as isize) {
             for j in (start.1.floor() as isize)..(end.1.ceil() as isize) {
-                if inside_triangle(i as f64 + 0.5, j as f64 + 0.5, &t.v) {
-                    let index = self.get_index(i.try_into().unwrap(), j.try_into().unwrap());
-                    if self.depth_buf[index] > t.v[0].z {
-                        continue;
-                    }
-                    self.depth_buf[index] = t.v[0].z;
-                    self.set_pixel(&Vector3::new(i as f64, j as f64, 1.0), &(255. * t.color[0]));
+
+                if !inside_triangle(i as f64, j as f64, &t.v) && !inside_triangle(i as f64 + 1., j as f64, &t.v)
+                && !inside_triangle(i as f64, j as f64 + 1., &t.v) && !inside_triangle(i as f64 + 1., j as f64 + 1., &t.v) {
+                    continue;
                 }
+
+                let step = 1./self.sample_per_pixel_line as f64;
+                let mut color:Vector3<f64> = Vector3::zeros();
+
+                for p in 0..self.sample_per_pixel_line {
+                    for q in 0..self.sample_per_pixel_line {
+                        let xpos = i as f64 + (p as f64 + 0.5) * step;
+                        let ypos = j as f64 + (q as f64 + 0.5) * step;
+                        let index = self.get_sample_index(i as u64, j as u64, p, q) as usize;
+                        if inside_triangle(xpos, ypos, &t.v) && self.depth_sample[index] < t.v[0].z {
+                            color += t.color[0];
+                            self.depth_sample[index] = t.v[0].z;
+                        }
+                    }
+                }
+                color /= (self.sample_per_pixel_line * self.sample_per_pixel_line) as f64;
+                let index = self.get_index(i.try_into().unwrap(), j.try_into().unwrap());
+                self.depth_buf[index] = t.v[0].z;
+                self.set_pixel(&Vector3::new(i as f64, j as f64, 1.0), &(255. * color));
             }
         }
     }
