@@ -4,6 +4,8 @@ mod utils;
 
 extern crate opencv;
 
+use std::time::SystemTime;
+
 use crate::rasterizer::{Primitive, Rasterizer};
 use nalgebra::Vector3;
 use opencv::highgui::{imshow, wait_key};
@@ -47,6 +49,8 @@ fn main() -> Result<()> {
     let mut frame_count = 0;
 
     while k != 27 {
+        let sy_time = SystemTime::now();
+
         r.clear(rasterizer::Buffer::Both);
         r.set_model(get_model_matrix(0.0));
         r.set_view(get_view_matrix(eye_pos));
@@ -59,6 +63,7 @@ fn main() -> Result<()> {
         imshow("image", &image)?;
         k = wait_key(2000).unwrap();
         println!("frame count: {}", frame_count);
+        println!("Time used: {}", sy_time.elapsed().unwrap().as_secs_f64());
         frame_count += 1;
     }
 
