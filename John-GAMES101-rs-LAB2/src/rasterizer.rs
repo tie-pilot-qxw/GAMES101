@@ -26,10 +26,9 @@ pub struct Rasterizer {
     col_buf: HashMap<usize, Vec<Vector3<f64>>>,
 
     frame_buf: Vec<Vector3<f64>>,
-    depth_buf: Vec<f64>,
     /*  You may need to uncomment here to implement the MSAA method  */
-    // frame_sample: Vec<Vector3<f64>>,
-    // depth_sample: Vec<f64>,
+    frame_now: Vec<Vector3<f64>>,
+    depth_now: Vec<f64>,
     width: u64,
     height: u64,
     next_id: usize,
@@ -51,7 +50,8 @@ impl Rasterizer {
         r.width = w;
         r.height = h;
         r.frame_buf.resize((w * h) as usize, Vector3::zeros());
-        r.depth_buf.resize((w * h) as usize, 0.0);
+        r.frame_now.resize((w * h) as usize, Vector3::zeros());
+        r.depth_now.resize((w * h) as usize, 0.0);
         r.blend_time = 1;
         r
     }
@@ -62,20 +62,20 @@ impl Rasterizer {
 
     fn set_pixel(&mut self, point: &Vector3<f64>, color: &Vector3<f64>) {
         let ind = (self.height as f64 - 1.0 - point.y) * self.width as f64 + point.x;
-        self.frame_buf[ind as usize] = *color;
+        self.frame_now[ind as usize] = *color;
     }
 
     pub fn clear(&mut self, buff: Buffer) {
         match buff {
             Buffer::Color => {
-                self.frame_buf.fill(Vector3::new(0.0, 0.0, 0.0));
+                self.frame_now.fill(Vector3::new(0.0, 0.0, 0.0));
             }
             Buffer::Depth => {
-                self.depth_buf.fill(f64::MIN);
+                self.depth_now.fill(f64::MIN);
             }
             Buffer::Both => {
-                self.frame_buf.fill(Vector3::new(0.0, 0.0, 0.0));
-                self.depth_buf.fill(f64::MIN);
+                self.frame_now.fill(Vector3::new(0.0, 0.0, 0.0));
+                self.depth_now.fill(f64::MIN);
             }
         }
     }
@@ -163,6 +163,10 @@ impl Rasterizer {
 
             self.rasterize_triangle(&t);
         }
+        for i in 0..self.frame_buf.len() {
+            self.frame_buf[i] = self.frame_now[i] * 255. * (1. / self.blend_time as f64)
+        + self.frame_buf[i] * (1. - 1. / self.blend_time as f64);
+        }
         self.blend_time += 1;
     }
 
@@ -185,13 +189,11 @@ impl Rasterizer {
                     &t.v,
                 ) {
                     let index = self.get_index(i.try_into().unwrap(), j.try_into().unwrap());
-                    if self.depth_buf[index] > t.v[0].z {
+                    if self.depth_now[index] > t.v[0].z {
                         continue;
                     }
-                    self.depth_buf[index] = t.v[0].z;
-                    let color = t.color[0] * 255. * (1. / self.blend_time as f64)
-                        + self.frame_buf[index] * (1. - 1. / self.blend_time as f64);
-                    self.set_pixel(&Vector3::new(i as f64, j as f64, 1.0), &(color));
+                    self.depth_now[index] = t.v[0].z;
+                    self.set_pixel(&Vector3::new(i as f64, j as f64, 1.0), &(t.color[0]));
                 }
             }
         }

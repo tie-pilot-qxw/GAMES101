@@ -52,6 +52,7 @@ fn main() -> Result<()> {
     while k != 27 {
         let sy_time = SystemTime::now();
 
+        r.clear(rasterizer::Buffer::Both);
         r.set_model(get_model_matrix(0.0));
         r.set_view(get_view_matrix(eye_pos));
         r.set_projection(get_projection_matrix(45.0, 1.0, 0.1, 50.0));
