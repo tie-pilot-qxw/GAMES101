@@ -33,6 +33,7 @@ pub struct Rasterizer {
     width: u64,
     height: u64,
     next_id: usize,
+    first_blend: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -51,6 +52,7 @@ impl Rasterizer {
         r.height = h;
         r.frame_buf.resize((w * h) as usize, Vector3::zeros());
         r.depth_buf.resize((w * h) as usize, 0.0);
+        r.first_blend = true;
         r
     }
 
@@ -161,6 +163,7 @@ impl Rasterizer {
 
             self.rasterize_triangle(&t);
         }
+        self.first_blend = false;
     }
 
     pub fn rasterize_triangle(&mut self, t: &Triangle) {
@@ -176,13 +179,23 @@ impl Rasterizer {
 
         for i in (start.0.floor() as isize)..(end.0.ceil() as isize) {
             for j in (start.1.floor() as isize)..(end.1.ceil() as isize) {
-                if inside_triangle(i as f64 + 0.5, j as f64 + 0.5, &t.v) {
+                if inside_triangle(
+                    i as f64 + rand::random::<f64>(),
+                    j as f64 + rand::random::<f64>(),
+                    &t.v,
+                ) {
                     let index = self.get_index(i.try_into().unwrap(), j.try_into().unwrap());
                     if self.depth_buf[index] > t.v[0].z {
                         continue;
                     }
                     self.depth_buf[index] = t.v[0].z;
-                    self.set_pixel(&Vector3::new(i as f64, j as f64, 1.0), &(255. * t.color[0]));
+                    let color = if self.first_blend {
+                        t.color[0] * 255.
+                    } else {
+                        // println!("{} {}",t.color[0],self.frame_buf[index]);
+                        t.color[0] * 0.05 * 255. + self.frame_buf[index] * (1. - 0.05)
+                    };
+                    self.set_pixel(&Vector3::new(i as f64, j as f64, 1.0), &(color));
                 }
             }
         }
