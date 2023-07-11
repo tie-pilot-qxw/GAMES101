@@ -1,35 +1,20 @@
+use std::f64::consts::PI;
+use std::os::raw::c_void;
+use nalgebra::{Matrix3, Matrix4, Vector3, Vector4};
+use opencv::core::{Mat, MatTraitConst};
+use opencv::imgproc::{COLOR_RGB2BGR, cvt_color};
 use crate::shader::{FragmentShaderPayload, VertexShaderPayload};
 use crate::texture::Texture;
 use crate::triangle::Triangle;
-use nalgebra::{Matrix3, Matrix4, Vector3, Vector4};
-use opencv::core::{Mat, MatTraitConst};
-use opencv::imgproc::{cvt_color, COLOR_RGB2BGR};
-use std::f64::consts::PI;
-use std::os::raw::c_void;
 
 type V3f = Vector3<f64>;
 type M4f = Matrix4<f64>;
 
 pub(crate) fn get_view_matrix(eye_pos: V3f) -> M4f {
-    let mut t_view: Matrix4<f64> = Matrix4::identity();
-    t_view.m14 = -eye_pos[0];
-    t_view.m24 = -eye_pos[1];
-    t_view.m34 = -eye_pos[2];
-    let g = Vector3::new(0., 0., -1.);
-    let t = Vector3::new(0., -1., 0.);
-    let cross = g.cross(&t);
-    let mut r_view: Matrix4<f64> = Matrix4::identity();
-    r_view.m11 = cross[0];
-    r_view.m21 = cross[1];
-    r_view.m31 = cross[2];
-    r_view.m12 = t[0];
-    r_view.m22 = t[1];
-    r_view.m32 = t[2];
-    r_view.m13 = -g[0];
-    r_view.m23 = -g[1];
-    r_view.m33 = -g[2];
-    r_view = r_view.transpose();
-    let view = r_view * t_view;
+    let mut view: M4f = Matrix4::identity();
+    view[(0, 3)] = -eye_pos[0];
+    view[(1, 3)] = -eye_pos[1];
+    view[(2, 3)] = -eye_pos[2];
 
     view
 }
@@ -48,12 +33,7 @@ pub(crate) fn get_model_matrix(rotation_angle: f64) -> M4f {
     model * scale
 }
 
-pub(crate) fn get_projection_matrix(
-    mut eye_fov: f64,
-    aspect_ratio: f64,
-    z_near: f64,
-    z_far: f64,
-) -> M4f {
+pub(crate) fn get_projection_matrix(mut eye_fov: f64, aspect_ratio: f64, z_near: f64, z_far: f64) -> M4f {
     // let mut persp2ortho: M4f = Matrix4::zeros();
     /*  Implement your code here  */
     eye_fov = eye_fov / 360. * PI;
@@ -81,21 +61,18 @@ pub(crate) fn get_projection_matrix(
     // persp2ortho
 }
 
+
 pub(crate) fn frame_buffer2cv_mat(frame_buffer: &Vec<V3f>) -> Mat {
     let mut image = unsafe {
         Mat::new_rows_cols_with_data(
-            700,
-            700,
+            700, 700,
             opencv::core::CV_64FC3,
             frame_buffer.as_ptr() as *mut c_void,
             opencv::core::Mat_AUTO_STEP,
-        )
-        .unwrap()
+        ).unwrap()
     };
     let mut img = Mat::copy(&image).unwrap();
-    image
-        .convert_to(&mut img, opencv::core::CV_8UC3, 1.0, 1.0)
-        .expect("panic message");
+    image.convert_to(&mut img, opencv::core::CV_8UC3, 1.0, 1.0).expect("panic message");
     cvt_color(&img, &mut image, COLOR_RGB2BGR, 0).unwrap();
     image
 }
@@ -109,10 +86,7 @@ pub fn load_triangles(obj_file: &str) -> Vec<Triangle> {
     // 遍历模型的每个面
     for vtx in 0..n {
         let rg = vtx * 3..vtx * 3 + 3;
-        let idx: Vec<_> = mesh.indices[rg.clone()]
-            .iter()
-            .map(|i| *i as usize)
-            .collect();
+        let idx: Vec<_> = mesh.indices[rg.clone()].iter().map(|i| *i as usize).collect();
 
         // 记录图形每个面中连续三个顶点（小三角形）
         for j in 0..3 {
@@ -128,10 +102,8 @@ pub fn load_triangles(obj_file: &str) -> Vec<Triangle> {
 }
 
 // 选择对应的Shader
-pub fn choose_shader_texture(
-    method: &str,
-    obj_path: &str,
-) -> (fn(&FragmentShaderPayload) -> Vector3<f64>, Option<Texture>) {
+pub fn choose_shader_texture(method: &str,
+                             obj_path: &str) -> (fn(&FragmentShaderPayload) -> Vector3<f64>, Option<Texture>) {
     let mut active_shader: fn(&FragmentShaderPayload) -> Vector3<f64> = phong_fragment_shader;
     let mut tex = None;
     if method == "normal" {
@@ -165,7 +137,8 @@ struct Light {
 }
 
 pub fn normal_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
-    let result_color = (payload.normal.xyz().normalize() + Vector3::new(1.0, 1.0, 1.0)) / 2.0;
+    let result_color =
+        (payload.normal.xyz().normalize() + Vector3::new(1.0, 1.0, 1.0)) / 2.0;
     result_color * 255.0
 }
 
@@ -196,11 +169,13 @@ pub fn phong_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
     let color = payload.color;
 
     let mut result_color = Vector3::zeros(); // 保存光照结果
-
+    
     // <遍历每一束光>
     for light in lights {
-        // TODO: For each light source in the code, calculate what the *ambient*, *diffuse*, and *specular*
+        // TODO: For each light source in the code, calculate what the *ambient*, *diffuse*, and *specular* 
         // components are. Then, accumulate that result on the *result_color* object.
+
+
     }
     result_color * 255.0
 }
@@ -210,6 +185,7 @@ pub fn texture_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
     let texture_color: Vector3<f64> = match &payload.texture {
         // TODO: Get the texture value at the texture coordinates of the current fragment
         // <获取材质颜色信息>
+
         None => Vector3::new(0.0, 0.0, 0.0),
         Some(texture) => Vector3::new(0.0, 0.0, 0.0), // Do modification here
     };
@@ -237,8 +213,9 @@ pub fn texture_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
     let mut result_color = Vector3::zeros();
 
     for light in lights {
-        // TODO: For each light source in the code, calculate what the *ambient*, *diffuse*, and *specular*
+        // TODO: For each light source in the code, calculate what the *ambient*, *diffuse*, and *specular* 
         // components are. Then, accumulate that result on the *result_color* object.
+
     }
 
     result_color * 255.0
@@ -323,8 +300,10 @@ pub fn displacement_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
 
     let mut result_color = Vector3::zeros();
     for light in lights {
-        // TODO: For each light source in the code, calculate what the *ambient*, *diffuse*, and *specular*
+        // TODO: For each light source in the code, calculate what the *ambient*, *diffuse*, and *specular* 
         // components are. Then, accumulate that result on the *result_color* object.
+
+        
     }
 
     result_color * 255.0

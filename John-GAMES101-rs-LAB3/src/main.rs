@@ -12,7 +12,7 @@ use crate::rasterizer::{Buffer, Rasterizer};
 use crate::shader::FragmentShaderPayload;
 use crate::texture::Texture;
 use nalgebra::Vector3;
-use opencv::core::Vector;
+use opencv::core::{Vector, ROTATE_180};
 use opencv::Result;
 use std::env;
 use utils::*;
@@ -52,8 +52,10 @@ fn main() -> Result<()> {
 
     r.draw(&triangles);
 
-    let image = frame_buffer2cv_mat(r.frame_buffer());
+    let image_t = frame_buffer2cv_mat(r.frame_buffer());
     let v: Vector<i32> = Default::default();
+    let mut image = opencv::prelude::Mat::default();
+    opencv::core::rotate(&image_t, &mut image, ROTATE_180).unwrap();
 
     opencv::imgcodecs::imwrite(&filename, &image, &v).unwrap();
     Ok(())
