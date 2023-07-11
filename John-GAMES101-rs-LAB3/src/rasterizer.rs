@@ -4,6 +4,7 @@ use nalgebra::{Matrix4, Vector2, Vector3, Vector4};
 use crate::shader::{FragmentShaderPayload, VertexShaderPayload};
 use crate::texture::Texture;
 use crate::triangle::Triangle;
+use std::f64::INFINITY;
 
 #[allow(dead_code)]
 pub enum Buffer {
@@ -70,7 +71,7 @@ impl Rasterizer {
                 self.depth_buf.fill(f64::MAX),
             Buffer::Both => {
                 self.frame_buf.fill(Vector3::new(0.0, 0.0, 0.0));
-                self.depth_buf.fill(f64::MAX);
+                self.depth_buf.fill(f64::MIN);
             }
         }
     }
@@ -109,7 +110,28 @@ impl Rasterizer {
 
     pub fn rasterize_triangle(&mut self, triangle: &Triangle, mvp: Matrix4<f64>) {
         /*  Implement your code here  */
+        let (t, view_space_pos) = Self::get_new_tri(&triangle, self.view, self.model, mvp,(self.width,self.height));
+        let mut end = (-INFINITY, -INFINITY);
+        let mut start = (INFINITY, INFINITY);
+        for vertex in t.v {
+            start.0 = start.0.min(vertex.x);
+            start.1 = start.1.min(vertex.y);
+            end.0 = end.0.max(vertex.x);
+            end.1 = end.1.max(vertex.y);
+        }
 
+        for i in (start.0.floor() as isize)..(end.0.ceil() as isize) {
+            for j in (start.1.floor() as isize)..(end.1.ceil() as isize) {
+                if inside_triangle(i as f64 + 0.5, j as f64 + 0.5, &t.v) {
+                    let index = Self::get_index(self.height, self.width, i.try_into().unwrap(), j.try_into().unwrap());
+                    if self.depth_buf[index] > t.v[0].z {
+                        continue;
+                    }
+                    self.depth_buf[index] = t.v[0].z;
+                    Self::set_pixel(self.height, self.width, &mut self.frame_buf, &Vector3::new(i as f64, j as f64, 1.0), &(255. * t.get_color()));
+                }
+            }
+        }
 
     }
     

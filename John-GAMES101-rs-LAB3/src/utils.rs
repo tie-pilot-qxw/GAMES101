@@ -1,3 +1,4 @@
+use std::f64::consts::PI;
 use std::os::raw::c_void;
 use nalgebra::{Matrix3, Matrix4, Vector3, Vector4};
 use opencv::core::{Mat, MatTraitConst};
@@ -10,11 +11,26 @@ type V3f = Vector3<f64>;
 type M4f = Matrix4<f64>;
 
 pub(crate) fn get_view_matrix(eye_pos: V3f) -> M4f {
-    let mut view: M4f = Matrix4::identity();
-    view[(0, 3)] = -eye_pos[0];
-    view[(1, 3)] = -eye_pos[1];
-    view[(2, 3)] = -eye_pos[2];
-
+    let mut t_view: Matrix4<f64> = Matrix4::identity();
+    t_view.m14 = -eye_pos[0];
+    t_view.m24 = -eye_pos[1];
+    t_view.m34 = -eye_pos[2];
+    let g = Vector3::new(0., 0., -1.);
+    let t = Vector3::new(0., -1., 0.);
+    let cross = g.cross(&t);
+    let mut r_view: Matrix4<f64> = Matrix4::identity();
+    r_view.m11 = cross[0];
+    r_view.m21 = cross[1];
+    r_view.m31 = cross[2];
+    r_view.m12 = t[0];
+    r_view.m22 = t[1];
+    r_view.m32 = t[2];
+    r_view.m13 = -g[0];
+    r_view.m23 = -g[1];
+    r_view.m33 = -g[2];
+    r_view = r_view.transpose();
+    let view = r_view * t_view;
+    
     view
 }
 
@@ -32,11 +48,32 @@ pub(crate) fn get_model_matrix(rotation_angle: f64) -> M4f {
     model * scale
 }
 
-pub(crate) fn get_projection_matrix(eye_fov: f64, aspect_ratio: f64, z_near: f64, z_far: f64) -> M4f {
-    let mut persp2ortho: M4f = Matrix4::zeros();
+pub(crate) fn get_projection_matrix(mut eye_fov: f64, aspect_ratio: f64, z_near: f64, z_far: f64) -> M4f {
+    // let mut persp2ortho: M4f = Matrix4::zeros();
     /*  Implement your code here  */
-
-    persp2ortho
+    eye_fov = eye_fov / 360. * PI;
+    let l = -eye_fov.tan() * z_near;
+    let r = -l;
+    let b = l * aspect_ratio;
+    let t = r * aspect_ratio;
+    let mut temp: Matrix4<f64> = Matrix4::identity();
+    temp.m11 = 2. / (r - l);
+    temp.m22 = 2. / (t - b);
+    temp.m33 = 2. / (z_far - z_near);
+    let mut m_ortho: Matrix4<f64> = Matrix4::identity();
+    m_ortho.m14 = -(r + l) / 2.;
+    m_ortho.m24 = -(t + b) / 2.;
+    m_ortho.m34 = -(z_near + z_far) / 2.;
+    m_ortho = temp * m_ortho;
+    let mut m_trans: Matrix4<f64> = Matrix4::zeros();
+    m_trans.m11 = z_near;
+    m_trans.m22 = z_near;
+    m_trans.m33 = z_near + z_far;
+    m_trans.m34 = -z_near * z_far;
+    m_trans.m43 = 1.;
+    let projection: Matrix4<f64> = m_ortho * m_trans;
+    projection
+    // persp2ortho
 }
 
 
