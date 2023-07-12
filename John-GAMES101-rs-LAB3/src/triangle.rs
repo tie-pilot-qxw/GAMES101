@@ -38,6 +38,6 @@ impl Triangle {
         [v[0], v[1], v[2]]
     }
     pub fn get_color(&self) -> Vector3<f64> {
-        self.color[0] * 255.0
+        self.color[0]
     }
 }

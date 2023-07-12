@@ -12,13 +12,14 @@ pub struct FragmentShaderPayload<'a> {
 
 impl<'a> FragmentShaderPayload<'a> {
     pub fn new(
+        v_pos: &Vector3<f64>,
         col: &Vector3<f64>,
         nor: &Vector3<f64>,
         tc: &Vector2<f64>,
         tex: Option<Rc<&'a Texture>>,
     ) -> Self {
         FragmentShaderPayload {
-            view_pos: Vector3::zeros(),
+            view_pos: v_pos.clone(),
             color: col.clone(),
             normal: nor.clone(),
             tex_coords: tc.clone(),

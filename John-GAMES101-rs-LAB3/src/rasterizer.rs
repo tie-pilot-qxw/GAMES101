@@ -145,12 +145,16 @@ impl Rasterizer {
                     self.depth_buf[index] = t.v[0].z;
                     let (a, b, c) = compute_barycentric2d(i as f64 + 0.5, j as f64 + 0.5, &t.v);
                     let normal = a * t.normal[0] + b * t.normal[1] + c * t.normal[2];
+                    let mut pos_4 = a * t.v[0] + b * t.v[1] + c * t.v[2];
+                    pos_4 = pos_4 / pos_4[3];
+                    let pos = Vector3::new(pos_4[0], pos_4[1], pos_4[2]);
                     Self::set_pixel(
                         self.height,
                         self.width,
                         &mut self.frame_buf,
                         &Vector3::new(i as f64, j as f64, 1.0),
                         &(self.fragment_shader.unwrap()(&FragmentShaderPayload::new(
+                            &Vector3::zeros(),
                             &t.get_color(),
                             &normal,
                             &Vector2::zeros(),
