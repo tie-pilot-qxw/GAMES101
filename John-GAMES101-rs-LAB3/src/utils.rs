@@ -4,6 +4,7 @@ use crate::triangle::Triangle;
 use nalgebra::{Matrix3, Matrix4, Vector3, Vector4};
 use opencv::core::{Mat, MatTraitConst};
 use opencv::imgproc::{cvt_color, COLOR_RGB2BGR};
+use opencv::stitching::Detail_MatchesInfoTraitConst;
 use std::f64::consts::PI;
 use std::os::raw::c_void;
 
@@ -281,7 +282,7 @@ pub fn bump_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
 
     let p = 150.0;
 
-    let normal = payload.normal;
+    let normal = payload.normal.normalize();
     let point = payload.view_pos;
     let color = payload.color;
 
@@ -297,8 +298,23 @@ pub fn bump_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
     // Vector ln = (-dU, -dV, 1)
     // Normal n = normalize(TBN * ln)
 
+    let (u,v) = (payload.tex_coords[0], payload.tex_coords[1]);
+    let (w,h) = (payload.texture.as_ref().unwrap().width,payload.texture.as_ref().unwrap().height);
+
+    let (x,y,z) = (normal.x, normal.y, normal.z);
+    let t = Vector3::new(x*y/(x*x+z*z).sqrt(), (x*x+z*z).sqrt(),z*y/(x*x+z*z).sqrt());
+    let b = normal.cross(&t);
+    let mut TBN = Matrix3::zeros();
+    TBN.m11 = t[0];TBN.m21 = t[1];TBN.m31 = t[2];
+    TBN.m12 = b[0];TBN.m22 = b[1];TBN.m32 = b[2];
+    TBN.m13 = normal[0];TBN.m23 = normal[1];TBN.m33 = normal[2];
+    let du = kh * kn * (payload.texture.as_ref().unwrap().get_color(u + 1./w as f64, v).norm() - payload.texture.as_ref().unwrap().get_color(u, v).norm());
+    let dv = kh * kn * (payload.texture.as_ref().unwrap().get_color(u, v + 1. / h as f64).norm() - payload.texture.as_ref().unwrap().get_color(u, v).norm());
+    let ln = Vector3::new(-du, -dv, 1.);
+    let n = (TBN * ln).normalize();
+
     let mut result_color = Vector3::zeros();
-    result_color = normal;
+    result_color = n;
 
     result_color * 255.0
 }
