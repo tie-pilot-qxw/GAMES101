@@ -199,11 +199,11 @@ pub fn phong_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
         let h = (v + l).normalize();
         let cosine = 0_f64.max(normal.normalize().dot(&h)).powf(p);
         result_color += ks.component_mul(&(light.intensity / len_s)) * cosine;
-        
-        // Ambient Term
-        result_color += ka.component_mul(&amb_light_intensity);
     }
-    
+
+    // Ambient Term
+    result_color += ka.component_mul(&amb_light_intensity);
+
     result_color * 255.0
 }
 
@@ -213,7 +213,7 @@ pub fn texture_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
         // TODO: Get the texture value at the texture coordinates of the current fragment
         // <获取材质颜色信息>
         None => Vector3::new(0.0, 0.0, 0.0),
-        Some(texture) => Vector3::new(0.0, 0.0, 0.0), // Do modification here
+        Some(texture) => payload.texture.as_ref().unwrap().get_color(payload.tex_coords[0], payload.tex_coords[1]), // Do modification here
     };
     let kd = texture_color / 255.0; // 材质颜色影响漫反射系数
     let ks = Vector3::new(0.7937, 0.7937, 0.7937);
@@ -241,6 +241,22 @@ pub fn texture_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
     for light in lights {
         // TODO: For each light source in the code, calculate what the *ambient*, *diffuse*, and *specular*
         // components are. Then, accumulate that result on the *result_color* object.
+
+        let l = light.position - point;
+        let len_s = l.norm_squared();
+        let cosine = 0_f64.max(normal.normalize().dot(&l.normalize()));
+
+        // Lambertian Term
+        result_color += kd.component_mul(&(light.intensity / len_s)) * cosine;
+
+        // Specular Term
+        let v = eye_pos - point;
+        let h = (v + l).normalize();
+        let cosine = 0_f64.max(normal.normalize().dot(&h)).powf(p);
+        result_color += ks.component_mul(&(light.intensity / len_s)) * cosine;
+        
+        // Ambient Term
+        result_color += ka.component_mul(&amb_light_intensity);
     }
 
     result_color * 255.0

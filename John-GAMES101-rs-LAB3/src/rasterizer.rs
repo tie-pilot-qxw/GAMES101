@@ -145,6 +145,7 @@ impl Rasterizer {
                     self.depth_buf[index] = t.v[0].z;
                     let (a, b, c) = compute_barycentric2d(i as f64 + 0.5, j as f64 + 0.5, &t.v);
                     let normal = a * t.normal[0] + b * t.normal[1] + c * t.normal[2];
+                    let tc = a * t.tex_coords[0] + b * t.tex_coords[1] + c * t.tex_coords[2];
                     let pos = a * view_space_pos[0] + b * view_space_pos[1] + c * view_space_pos[2];                    Self::set_pixel(
                         self.height,
                         self.width,
@@ -154,8 +155,8 @@ impl Rasterizer {
                             &pos,
                             &t.get_color(),
                             &normal,
-                            &Vector2::zeros(),
-                            None,
+                            &tc,
+                            Some(Rc::new(self.texture.as_ref().unwrap())),
                         ))),
                     );
                 }
