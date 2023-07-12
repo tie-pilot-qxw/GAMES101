@@ -187,22 +187,23 @@ pub fn phong_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
         // TODO: For each light source in the code, calculate what the *ambient*, *diffuse*, and *specular*
         // components are. Then, accumulate that result on the *result_color* object.
 
-        let ray = light.position - point;
-        let l = ray.normalize();
-        let len_s = ray.norm_squared();
-        let cosine = 0_f64.max(normal.dot(&l));
+        let l = light.position - point;
+        let len_s = l.norm_squared();
+        let cosine = 0_f64.max(normal.normalize().dot(&l.normalize()));
 
         // Lambertian Term
-        result_color += kd.component_mul(&(light.intensity / len_s * cosine));
+        result_color += kd.component_mul(&(light.intensity / len_s)) * cosine;
 
         // Specular Term
         let v = eye_pos - point;
-        let h: nalgebra::Matrix<f64, nalgebra::Const<3>, nalgebra::Const<1>, nalgebra::ArrayStorage<f64, 3, 1>> = (v + l) / (v + l).norm();
-        let cosine = 0_f64.max(normal.dot(&h).powf(7.));
-        result_color += ks.component_mul(&(light.intensity / len_s)) * cosine * 100.;
+        let h = (v + l).normalize();
+        let cosine = 0_f64.max(normal.normalize().dot(&h)).powf(p);
+        result_color += ks.component_mul(&(light.intensity / len_s)) * cosine;
+        
+        // Ambient Term
+        result_color += ka.component_mul(&amb_light_intensity);
     }
-    // Ambient Term
-    result_color += ka.component_mul(&amb_light_intensity);
+    
     result_color * 255.0
 }
 
