@@ -27,7 +27,7 @@ fn main() -> Result<()> {
     let texture_path = "hmap.jpg".to_owned();
     // let texture_path = "spot_texture.jpg".to_owned();
     let mut tex = Texture::new(&(obj_path.clone() + &texture_path));
-    let mut active_shader: fn(&FragmentShaderPayload) -> Vector3<f64> = bump_fragment_shader; // 默认为<normal shader>
+    let mut active_shader: fn(&FragmentShaderPayload) -> Vector3<f64> = normal_fragment_shader; // 默认为<normal shader>
     let ags: Vec<String> = env::args().collect();
     if ags.len() >= 2 {
         filename = ags[1].clone();

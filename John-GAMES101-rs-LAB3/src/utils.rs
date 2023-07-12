@@ -354,11 +354,41 @@ pub fn displacement_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
     // Vector ln = (-dU, -dV, 1)
     // Position p = p + kn * n * h(u,v)
     // Normal n = normalize(TBN * ln)
+    let (u,v) = (payload.tex_coords[0], payload.tex_coords[1]);
+    let (w,h) = (payload.texture.as_ref().unwrap().width,payload.texture.as_ref().unwrap().height);
+
+    let (x,y,z) = (normal.x, normal.y, normal.z);
+    let t = Vector3::new(x*y/(x*x+z*z).sqrt(), (x*x+z*z).sqrt(),z*y/(x*x+z*z).sqrt());
+    let b = normal.cross(&t);
+    let mut TBN = Matrix3::zeros();
+    TBN.m11 = t[0];TBN.m21 = t[1];TBN.m31 = t[2];
+    TBN.m12 = b[0];TBN.m22 = b[1];TBN.m32 = b[2];
+    TBN.m13 = normal[0];TBN.m23 = normal[1];TBN.m33 = normal[2];
+    let du = kh * kn * (payload.texture.as_ref().unwrap().get_color(u + 1./w as f64, v).norm() - payload.texture.as_ref().unwrap().get_color(u, v).norm());
+    let dv = kh * kn * (payload.texture.as_ref().unwrap().get_color(u, v + 1. / h as f64).norm() - payload.texture.as_ref().unwrap().get_color(u, v).norm());
+    let ln = Vector3::new(-du, -dv, 1.);
+    let normal = (TBN * ln).normalize();
 
     let mut result_color = Vector3::zeros();
     for light in lights {
         // TODO: For each light source in the code, calculate what the *ambient*, *diffuse*, and *specular*
         // components are. Then, accumulate that result on the *result_color* object.
+
+        let l = light.position - point;
+        let len_s = l.norm_squared();
+        let cosine = 0_f64.max(normal.normalize().dot(&l.normalize()));
+
+        // Lambertian Term
+        result_color += kd.component_mul(&(light.intensity / len_s)) * cosine;
+
+        // Specular Term
+        let v = eye_pos - point;
+        let h = (v + l).normalize();
+        let cosine = 0_f64.max(normal.normalize().dot(&h)).powf(p);
+        result_color += ks.component_mul(&(light.intensity / len_s)) * cosine;
+        
+        // Ambient Term
+        result_color += ka.component_mul(&amb_light_intensity);
     }
 
     result_color * 255.0
