@@ -177,7 +177,7 @@ pub fn phong_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
     let p = 150.0;
 
     // ping point的信息
-    let normal = payload.normal;
+    let normal = payload.normal.normalize();
     let point = payload.view_pos;
     let color = payload.color;
 
@@ -190,7 +190,7 @@ pub fn phong_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
 
         let l = light.position - point;
         let len_s = l.norm_squared();
-        let cosine = 0_f64.max(normal.normalize().dot(&l.normalize()));
+        let cosine = 0_f64.max(normal.dot(&l.normalize()));
 
         // Lambertian Term
         result_color += kd.component_mul(&(light.intensity / len_s)) * cosine;
@@ -198,7 +198,7 @@ pub fn phong_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
         // Specular Term
         let v = eye_pos - point;
         let h = (v + l).normalize();
-        let cosine = 0_f64.max(normal.normalize().dot(&h)).powf(p);
+        let cosine = 0_f64.max(normal.dot(&h)).powf(p);
         result_color += ks.component_mul(&(light.intensity / len_s)) * cosine;
     }
 
@@ -214,7 +214,7 @@ pub fn texture_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
         // TODO: Get the texture value at the texture coordinates of the current fragment
         // <获取材质颜色信息>
         None => Vector3::new(0.0, 0.0, 0.0),
-        Some(texture) => payload.texture.as_ref().unwrap().get_color(payload.tex_coords[0], payload.tex_coords[1]), // Do modification here
+        Some(texture) => payload.texture.as_ref().unwrap().getColorBilinear(payload.tex_coords[0], payload.tex_coords[1]), // Do modification here
     };
     let kd = texture_color / 255.0; // 材质颜色影响漫反射系数
     let ks = Vector3::new(0.7937, 0.7937, 0.7937);
@@ -308,8 +308,8 @@ pub fn bump_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
     TBN.m11 = t[0];TBN.m21 = t[1];TBN.m31 = t[2];
     TBN.m12 = b[0];TBN.m22 = b[1];TBN.m32 = b[2];
     TBN.m13 = normal[0];TBN.m23 = normal[1];TBN.m33 = normal[2];
-    let du = kh * kn * (payload.texture.as_ref().unwrap().get_color(u + 1./w as f64, v).norm() - payload.texture.as_ref().unwrap().get_color(u, v).norm());
-    let dv = kh * kn * (payload.texture.as_ref().unwrap().get_color(u, v + 1. / h as f64).norm() - payload.texture.as_ref().unwrap().get_color(u, v).norm());
+    let du = kh * kn * (payload.texture.as_ref().unwrap().getColorBilinear(u + 1./w as f64, v).norm() - payload.texture.as_ref().unwrap().getColorBilinear(u, v).norm());
+    let dv = kh * kn * (payload.texture.as_ref().unwrap().getColorBilinear(u, v + 1. / h as f64).norm() - payload.texture.as_ref().unwrap().getColorBilinear(u, v).norm());
     let ln = Vector3::new(-du, -dv, 1.);
     let n = (TBN * ln).normalize();
 
@@ -364,8 +364,8 @@ pub fn displacement_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
     TBN.m11 = t[0];TBN.m21 = t[1];TBN.m31 = t[2];
     TBN.m12 = b[0];TBN.m22 = b[1];TBN.m32 = b[2];
     TBN.m13 = normal[0];TBN.m23 = normal[1];TBN.m33 = normal[2];
-    let du = kh * kn * (payload.texture.as_ref().unwrap().get_color(u + 1./w as f64, v).norm() - payload.texture.as_ref().unwrap().get_color(u, v).norm());
-    let dv = kh * kn * (payload.texture.as_ref().unwrap().get_color(u, v + 1. / h as f64).norm() - payload.texture.as_ref().unwrap().get_color(u, v).norm());
+    let du = kh * kn * (payload.texture.as_ref().unwrap().getColorBilinear(u + 1./w as f64, v).norm() - payload.texture.as_ref().unwrap().getColorBilinear(u, v).norm());
+    let dv = kh * kn * (payload.texture.as_ref().unwrap().getColorBilinear(u, v + 1. / h as f64).norm() - payload.texture.as_ref().unwrap().getColorBilinear(u, v).norm());
     let ln = Vector3::new(-du, -dv, 1.);
     let normal = (TBN * ln).normalize();
 
