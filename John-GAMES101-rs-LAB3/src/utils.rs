@@ -367,6 +367,7 @@ pub fn displacement_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
     let du = kh * kn * (payload.texture.as_ref().unwrap().getColorBilinear(u + 1./w as f64, v).norm() - payload.texture.as_ref().unwrap().getColorBilinear(u, v).norm());
     let dv = kh * kn * (payload.texture.as_ref().unwrap().getColorBilinear(u, v + 1. / h as f64).norm() - payload.texture.as_ref().unwrap().getColorBilinear(u, v).norm());
     let ln = Vector3::new(-du, -dv, 1.);
+    let point = point + kn * normal * payload.texture.as_ref().unwrap().getColorBilinear(u, v).norm();
     let normal = (TBN * ln).normalize();
 
     let mut result_color = Vector3::zeros();
